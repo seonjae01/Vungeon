@@ -23,40 +23,11 @@
             height: 100vh;
         }
 
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 100;
-            font-size: 16px;
-        }
-
-        #ui > div {
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            margin: 5px 0;
-            border-radius: 8px;
-            backdrop-filter: blur(10px);
-        }
-
-        h1 {
-            font-size: 48px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-align: center;
-            margin-bottom: 20px;
-        }
+        /* UI 제거됨 */
     </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <div id="ui">
-            <h1>Vungeon</h1>
-            <div>게임 로딩 중...</div>
-        </div>
-    </div>
+    <div id="gameContainer"></div>
 
     <script type="importmap">
     {
@@ -66,6 +37,6 @@
         }
     }
     </script>
-    <script type="module" src="game.js"></script>
+    <script type="module" src="js/game.js"></script>
 </body>
 </html>
