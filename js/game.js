@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createScene, addLights, createFloor } from './scene.js';
 import { createCamera, onWindowResize } from './camera.js';
 import { createPlayer } from './player.js';
+import { loadMap } from './map.js';
 
 // 전역 변수
 let scene, camera, renderer, player;
@@ -20,14 +21,31 @@ function init() {
     addLights(scene);
     createFloor(scene);
     
+    // 맵 로드
+    loadMap(scene, () => {
+        console.log('맵 로드 완료');
+    });
+    
     // 플레이어 생성
     player = createPlayer();
     scene.add(player);
     
     // 렌더러 생성
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        powerPreference: "high-performance"
+    });
+    
+    // 화질 개선 설정
+    renderer.setPixelRatio(window.devicePixelRatio); // 고해상도 화면 지원
     renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // 렌더링 품질 향상
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // 부드러운 그림자
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; // 개선된 톤매핑
+    renderer.toneMappingExposure = 1;
+    
     document.getElementById('gameContainer').appendChild(renderer.domElement);
     
     // 이벤트 리스너
