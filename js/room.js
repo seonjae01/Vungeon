@@ -3,48 +3,56 @@ export const roomTypes = {
         north: false,
         south: true,
         east: false,
-        west: true
+        west: true,
+        weight: 4
     },
     'Dragon Room': {
         north: false,
         south: true,
         east: false,
-        west: true
+        west: true,
+        weight: 8
     },
     'Garden': {
         north: true,
         south: true,
         east: true,
-        west: true
+        west: true,
+        weight: 8
     },
     'King Throne': {
         north: false,
         south: true,
         east: true,
-        west: true
+        west: true,
+        weight: 1
     },
     'Princess Chamber': {
         north: false,
         south: true,
         east: false,
-        west: true
+        west: true,
+        weight: 1
     },
     'Thirsty Corridor': {
         north: true,
         south: true,
         east: true,
-        west: true
+        west: true,
+        weight: 24
     },
     'Trapped Room': {
         north: false,
         south: true,
         east: true,
-        west: true
+        west: true,
+        weight: 4
     },
     'Treasure': {
         north: true,
         south: true,
         east: false,
-        west: true
+        west: true,
+        weight: 1
     }
 };

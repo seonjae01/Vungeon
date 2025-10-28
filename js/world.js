@@ -12,7 +12,19 @@ const roomQueue = [];
 
 function getRandomRoomType() {
     const roomTypeNames = Object.keys(roomTypes);
-    return roomTypeNames[Math.floor(Math.random() * roomTypeNames.length)];
+    const weights = roomTypeNames.map(name => roomTypes[name].weight);
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    
+    let random = Math.random() * totalWeight;
+    
+    for (let i = 0; i < roomTypeNames.length; i++) {
+        random -= weights[i];
+        if (random <= 0) {
+            return roomTypeNames[i];
+        }
+    }
+    
+    return roomTypeNames[roomTypeNames.length - 1];
 }
 
 function processRemoveQueue(world) {
