@@ -3,32 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vungeon.io</title>
+    <title>Vungeon</title>
     <style>
-        * {
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #0a0a0a;
-            color: #fff;
             overflow: hidden;
         }
-
-        #gameContainer {
-            width: 100vw;
-            height: 100vh;
-        }
-
-        /* UI 제거됨 */
     </style>
-</head>
-<body>
-    <div id="gameContainer"></div>
-
     <script type="importmap">
     {
         "imports": {
@@ -37,6 +19,8 @@
         }
     }
     </script>
+</head>
+<body>
     <script type="module" src="js/game.js"></script>
 </body>
 </html>
