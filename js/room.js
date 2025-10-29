@@ -39,7 +39,7 @@ export const roomTypes = {
         south: true,
         east: true,
         west: true,
-        weight: 24
+        weight: 28
     },
     'Trapped Room': {
         north: false,

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 const keys = {};
+const moveVector = new THREE.Vector3();
 
 export function setupInput(player) {
     document.addEventListener('keydown', (event) => {
@@ -13,8 +14,9 @@ export function setupInput(player) {
 }
 
 export function handlePlayerMovement(player) {
-    const moveVector = new THREE.Vector3();
     const speed = player.moveSpeed;
+    
+    moveVector.set(0, 0, 0);
     
     if (keys['KeyW']) {
         moveVector.x += speed;
