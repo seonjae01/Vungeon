@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-const FRUSTUM_SIZE = 5;
+const FRUSTUM_SIZE = 7;
 const CAMERA_HEIGHT = 15;
 const CAMERA_OFFSET = 10;
 const LERP_SPEED = 0.05;
