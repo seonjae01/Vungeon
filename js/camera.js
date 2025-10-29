@@ -31,15 +31,17 @@ export function createCamera() {
 }
 
 export function updateCameraPosition(camera, player, playerRoomX, playerRoomZ) {
-    if (playerRoomX !== currentRoomX || playerRoomZ !== currentRoomZ) {
-        currentRoomX = playerRoomX;
-        currentRoomZ = playerRoomZ;
-        
-        const roomCenterX = currentRoomX * ROOM_SIZE;
-        const roomCenterZ = currentRoomZ * ROOM_SIZE;
-        
-        targetPosition.set(roomCenterX - CAMERA_OFFSET, CAMERA_HEIGHT, roomCenterZ + CAMERA_OFFSET);
+    if (playerRoomX === currentRoomX && playerRoomZ === currentRoomZ) {
+        camera.position.lerp(targetPosition, LERP_SPEED);
+        return;
     }
     
+    currentRoomX = playerRoomX;
+    currentRoomZ = playerRoomZ;
+    
+    const roomCenterX = currentRoomX * ROOM_SIZE;
+    const roomCenterZ = currentRoomZ * ROOM_SIZE;
+    
+    targetPosition.set(roomCenterX - CAMERA_OFFSET, CAMERA_HEIGHT, roomCenterZ + CAMERA_OFFSET);
     camera.position.lerp(targetPosition, LERP_SPEED);
 }

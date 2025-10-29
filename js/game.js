@@ -5,23 +5,24 @@ import { generateRoomsAroundPlayer } from './world.js';
 
 const FRUSTUM_SIZE = 5;
 const ROOM_SIZE = 5;
+const BLUR_LERP_SPEED = 0.05;
 
 let scene, camera, renderer, player, world, updateCameraPosition;
 let isLoading = true;
 let blurAmount = 10;
-const BLUR_LERP_SPEED = 0.05;
 
 function updateBlur() {
-    if (isLoading && renderer && renderer.domElement) {
-        blurAmount = Math.max(0, blurAmount - BLUR_LERP_SPEED * blurAmount);
-        
-        if (blurAmount <= 0.1) {
-            isLoading = false;
-            renderer.domElement.style.filter = '';
-        } else {
-            renderer.domElement.style.filter = `blur(${blurAmount}px)`;
-        }
+    if (!isLoading || !renderer?.domElement) return;
+    
+    blurAmount = Math.max(0, blurAmount - BLUR_LERP_SPEED * blurAmount);
+    
+    if (blurAmount <= 0.1) {
+        isLoading = false;
+        renderer.domElement.style.filter = '';
+        return;
     }
+    
+    renderer.domElement.style.filter = `blur(${blurAmount}px)`;
 }
 
 async function init() {
@@ -66,9 +67,7 @@ function handleResize() {
 function animate() {
     requestAnimationFrame(animate);
     
-    if (!isLoading) {
-        handlePlayerMovement(player);
-    }
+    if (!isLoading) handlePlayerMovement(player);
     
     const { x: playerX, z: playerZ } = player.position;
     const playerRoomX = Math.round(playerX / ROOM_SIZE);
@@ -78,7 +77,6 @@ function animate() {
     generateRoomsAroundPlayer(player, world, playerRoomX, playerRoomZ);
     
     renderer.render(scene, camera);
-    
     updateBlur();
 }
 
