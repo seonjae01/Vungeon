@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-const PLAYER_RADIUS = 0.5;
+const PLAYER_RADIUS = 0.2;
 const PLAYER_HEIGHT = 1;
 const PLAYER_SEGMENTS = 32;
 const PLAYER_COLOR = 0xffffff;
@@ -14,6 +14,7 @@ export function createPlayer() {
     
     player.position.set(0, PLAYER_Y, 0);
     player.moveSpeed = MOVE_SPEED;
+    player.userData.collider = { radius: PLAYER_RADIUS, height: PLAYER_HEIGHT };
     
     return player;
 }

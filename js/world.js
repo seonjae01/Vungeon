@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+import { loadRoomObject } from './loader.js';
 import { roomTypes } from './room.js';
 import { registerTemplate, hasTemplate, acquire, release } from './objectPool.js';
+
+const roomColliders = new Map();
 
 const ROOM_SIZE = 5;
 const MAX_DISTANCE = 2;
@@ -27,8 +28,6 @@ let forceTransparencyUpdate = false;
 let cachedRoomQueueKeys = new Set();
 let roomQueueKeysDirty = true;
 
-const objLoader = new OBJLoader();
-const mtlLoader = new MTLLoader();
 
 const roomTypeNames = Object.keys(roomTypes);
 const weights = roomTypeNames.map(name => roomTypes[name].weight);
@@ -181,11 +180,24 @@ function processRemoveQueue(world) {
     }
 }
 
-function setupRoomFromPool(room, roomX, roomZ, roomKey, world) {
+function setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType) {
     if (room.parent) room.parent.remove(room);
     
     room.position.set(roomX * ROOM_SIZE, 0, roomZ * ROOM_SIZE);
     room.visible = true;
+    
+    const colliders = roomTypes[roomType]?.colliders || [];
+    const worldColliders = colliders.map(collider => ({
+        position: {
+            x: collider.position.x + roomX * ROOM_SIZE,
+            y: collider.position.y,
+            z: collider.position.z + roomZ * ROOM_SIZE
+        },
+        size: collider.size
+    }));
+    roomColliders.set(roomKey, worldColliders);
+    
+    
     world.add(room);
     loadedRooms.set(roomKey, room);
     roomPositions.set(roomKey, { x: roomX, z: roomZ });
@@ -208,7 +220,7 @@ function processRoomQueue(world) {
         if (hasTemplate(roomType)) {
             const room = acquire(roomType);
             if (room) {
-                setupRoomFromPool(room, roomX, roomZ, roomKey, world);
+                setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType);
                 processed++;
                 continue;
             }
@@ -224,10 +236,7 @@ function processRoomQueue(world) {
             }
         };
         
-        mtlLoader.load(`assets/models/${roomType}/${roomType}.mtl`, (materials) => {
-            materials.preload();
-            objLoader.setMaterials(materials);
-            objLoader.load(`assets/models/${roomType}/${roomType}.obj`, (object) => {
+        loadRoomObject(roomType).then((object) => {
                 if (!hasTemplate(roomType)) {
                     const template = object.clone(true);
                     registerTemplate(roomType, template);
@@ -239,14 +248,26 @@ function processRoomQueue(world) {
                 
                 room.position.set(roomX * ROOM_SIZE, 0, roomZ * ROOM_SIZE);
                 room.visible = true;
+                
+                const colliders = roomTypes[roomType]?.colliders || [];
+                const worldColliders = colliders.map(collider => ({
+                    position: {
+                        x: collider.position.x + roomX * ROOM_SIZE,
+                        y: collider.position.y,
+                        z: collider.position.z + roomZ * ROOM_SIZE
+                    },
+                    size: collider.size
+                }));
+                roomColliders.set(roomKey, worldColliders);
+                
+                
                 world.add(room);
                 loadedRooms.set(roomKey, room);
                 roomPositions.set(roomKey, { x: roomX, z: roomZ });
                 
                 forceTransparencyUpdate = true;
                 loadingRooms.delete(roomKey);
-            }, undefined, onError);
-        }, undefined, onError);
+            }).catch(onError);
         
         processed++;
     }
@@ -271,17 +292,22 @@ export function createWorld() {
     return new Promise((resolve) => {
         const world = new THREE.Group();
         
-        roomData.set('0,0', INITIAL_ROOM_TYPE);
-        
-        mtlLoader.load(`assets/models/${INITIAL_ROOM_TYPE}/${INITIAL_ROOM_TYPE}.mtl`, (materials) => {
-            materials.preload();
-            objLoader.setMaterials(materials);
-            objLoader.load(`assets/models/${INITIAL_ROOM_TYPE}/${INITIAL_ROOM_TYPE}.obj`, (object) => {
-                const template = object.clone(true);
-                registerTemplate(INITIAL_ROOM_TYPE, template);
-                
+        loadRoomObject(INITIAL_ROOM_TYPE).then((object) => {
                 object.position.set(0, 0, 0);
                 object.visible = true;
+                
+                const colliders = roomTypes[INITIAL_ROOM_TYPE]?.colliders || [];
+                const worldColliders = colliders.map(collider => ({
+                    position: {
+                        x: collider.position.x,
+                        y: collider.position.y,
+                        z: collider.position.z
+                    },
+                    size: collider.size
+                }));
+                roomColliders.set('0,0', worldColliders);
+                
+                
                 world.add(object);
                 loadedRooms.set('0,0', object);
                 roomPositions.set('0,0', { x: 0, z: 0 });
@@ -292,20 +318,8 @@ export function createWorld() {
                 initialRoomLoaded = true;
                 forceTransparencyUpdate = true;
                 
-                applyInitialTransparency();
-                
-                requestAnimationFrame(() => {
-                    applyInitialTransparency();
-                    requestAnimationFrame(() => {
-                        applyInitialTransparency();
-                        requestAnimationFrame(() => {
-                            applyInitialTransparency();
-                            resolve(world);
-                        });
-                    });
-                });
+                resolve(world);
             });
-        });
     });
 }
 
@@ -315,6 +329,14 @@ function getRoomQueueKeys() {
     cachedRoomQueueKeys = new Set(roomQueue.map(item => item.roomKey));
     roomQueueKeysDirty = false;
     return cachedRoomQueueKeys;
+}
+
+export function getRoomColliders() {
+    return roomColliders;
+}
+
+export function getLoadedRooms() {
+    return loadedRooms;
 }
 
 export function generateRoomsAroundPlayer(player, world, playerRoomX, playerRoomZ) {
