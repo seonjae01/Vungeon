@@ -4,7 +4,6 @@ export const roomTypes = {
         south: true,
         east: false,
         west: true,
-        weight: 4,
         colliders: [
             { position: { x: 2.5, y: 0, z: 0 }, size: { x: 0.3, y: 5, z: 5 } },
             { position: { x: 0, y: 0, z: -2.5 }, size: { x: 5, y: 5, z: 0.3 } },
@@ -19,7 +18,6 @@ export const roomTypes = {
         south: true,
         east: false,
         west: true,
-        weight: 8,
         colliders: [
             { position: { x: 2.5, y: 0, z: 0 }, size: { x: 0.3, y: 5, z: 5 } },
             { position: { x: 0, y: 0, z: -2.5 }, size: { x: 5, y: 5, z: 0.3 } },
@@ -32,7 +30,6 @@ export const roomTypes = {
         south: true,
         east: true,
         west: true,
-        weight: 8,
         colliders: [
             { position: { x: 2.5, y: 0, z: -1.5 }, size: { x: 0.3, y: 5, z: 1.8 } },
             { position: { x: 2.5, y: 0, z: 1.5 }, size: { x: 0.3, y: 5, z: 1.8 } },
@@ -46,7 +43,6 @@ export const roomTypes = {
         south: true,
         east: true,
         west: true,
-        weight: 1,
         colliders: [
             { position: { x: 2.5, y: 0, z: -1.5 }, size: { x: 0.3, y: 5, z: 1.8 } },
             { position: { x: 2.5, y: 0, z: 1.5 }, size: { x: 0.3, y: 5, z: 1.8 } },
@@ -61,7 +57,6 @@ export const roomTypes = {
         south: true,
         east: false,
         west: true,
-        weight: 1,
         colliders: [
             { position: { x: 2.5, y: 0, z: 0 }, size: { x: 0.3, y: 5, z: 5 } },
             { position: { x: 0, y: 0, z: -2.5 }, size: { x: 5, y: 5, z: 0.3 } },
@@ -75,7 +70,6 @@ export const roomTypes = {
         south: true,
         east: true,
         west: true,
-        weight: 28,
         colliders: [
             { position: { x: 2.5, y: 0, z: -1.5 }, size: { x: 0.3, y: 5, z: 1.8 } },
             { position: { x: 2.5, y: 0, z: 1.5 }, size: { x: 0.3, y: 5, z: 1.8 } },
@@ -90,14 +84,13 @@ export const roomTypes = {
         south: true,
         east: true,
         west: true,
-        weight: 4,
         colliders: [
             { position: { x: 2.5, y: 0, z: -1.5 }, size: { x: 0.3, y: 5, z: 1.8 } },
             { position: { x: 2.5, y: 0, z: 1.5 }, size: { x: 0.3, y: 5, z: 1.8 } },
             { position: { x: 0, y: 0, z: -2.5 }, size: { x: 5, y: 5, z: 0.3 } },
-            { position: { x: 0, y: 0, z: 0 }, size: { x: 0.8, y: 2, z: 0.8 } },
-            { position: { x: -1, y: 0, z: 1 }, size: { x: 0.8, y: 2, z: 0.8 } },
-            { position: { x: -1, y: 0, z: -1 }, size: { x: 0.8, y: 2, z: 0.8 } }
+            { position: { x: 0, y: 0, z: 0 }, size: { x: 0.6, y: 2, z: 0.6 } },
+            { position: { x: -1, y: 0, z: 1 }, size: { x: 0.6, y: 2, z: 0.6 } },
+            { position: { x: -1, y: 0, z: -1 }, size: { x: 0.6, y: 2, z: 0.6 } }
         ]
     },
     'Treasure': {
@@ -105,7 +98,6 @@ export const roomTypes = {
         south: true,
         east: false,
         west: true,
-        weight: 1,
         colliders: [
             { position: { x: 2.5, y: 0, z: 0 }, size: { x: 0.3, y: 5, z: 5 } },
             { position: { x: 1.5, y: 0, z: -2.5 }, size: { x: 1.8, y: 5, z: 0.3 } },

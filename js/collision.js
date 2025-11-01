@@ -21,11 +21,14 @@ export function canMove(player, playerPosition, moveVector, roomColliders) {
     const height = player?.userData?.collider?.height ?? 1;
     const playerFootY = playerPosition.y - height * 0.5;
     
+    const nextX = playerPosition.x + moveVector.x;
+    const nextZ = playerPosition.z + moveVector.z;
+    
     const playerBox = {
         position: {
-            x: playerPosition.x + moveVector.x,
+            x: nextX,
             y: playerFootY,
-            z: playerPosition.z + moveVector.z
+            z: nextZ
         },
         size: {
             x: radius * 2,
@@ -34,8 +37,48 @@ export function canMove(player, playerPosition, moveVector, roomColliders) {
         }
     };
     
-    for (const colliders of roomColliders.values()) {
+    const boundaryKey = 'boundary';
+    const boundaryColliders = roomColliders.get(boundaryKey);
+    
+    if (boundaryColliders && Array.isArray(boundaryColliders)) {
+        for (const collider of boundaryColliders) {
+            if (!collider || !collider.position || !collider.size) continue;
+            
+            const playerMinX = nextX - radius;
+            const playerMaxX = nextX + radius;
+            const playerMinZ = nextZ - radius;
+            const playerMaxZ = nextZ + radius;
+            
+            const colliderMinX = collider.position.x - collider.size.x / 2;
+            const colliderMaxX = collider.position.x + collider.size.x / 2;
+            const colliderMinZ = collider.position.z - collider.size.z / 2;
+            const colliderMaxZ = collider.position.z + collider.size.z / 2;
+            
+            const xOverlap = playerMinX <= colliderMaxX && playerMaxX >= colliderMinX;
+            const zOverlap = playerMinZ <= colliderMaxZ && playerMaxZ >= colliderMinZ;
+            
+            if (xOverlap && zOverlap) {
+                const playerMinY = playerFootY;
+                const playerMaxY = playerFootY + height;
+                const colliderMinY = collider.position.y - collider.size.y / 2;
+                const colliderMaxY = collider.position.y + collider.size.y / 2;
+                
+                const yOverlap = playerMinY <= colliderMaxY && playerMaxY >= colliderMinY;
+                
+                if (yOverlap) {
+                    return false;
+                }
+            }
+        }
+    }
+    
+    for (const [key, colliders] of roomColliders) {
+        if (key === boundaryKey) continue;
+        if (!Array.isArray(colliders)) continue;
+        
         for (const collider of colliders) {
+            if (!collider || !collider.position || !collider.size) continue;
+            
             if (checkBoxCollision(playerBox, collider)) {
                 return false;
             }

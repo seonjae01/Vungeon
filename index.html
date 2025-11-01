@@ -15,6 +15,40 @@
     </script>
 </head>
 <body>
+    <div id="timer" class="timer">00:00</div>
+    
+    <div id="startUI" class="overlay">
+        <div class="ui-container">
+            <h1 class="game-title">Vungeon</h1>
+            <div class="instructions">
+                <div class="controls">
+                    <div class="key-row">
+                        <span class="key">W</span>
+                    </div>
+                    <div class="key-row">
+                        <span class="key">A</span>
+                        <span class="key">S</span>
+                        <span class="key">D</span>
+                    </div>
+                </div>
+                <div class="objective">
+                    <h2>목표</h2>
+                    <p>미로를 탐험하여 <strong>보물 방</strong>을 찾아 탈출하세요!</p>
+                </div>
+            </div>
+            <div class="auto-start-message">게임을 시작합니다...</div>
+        </div>
+    </div>
+
+    <div id="successUI" class="overlay hidden">
+        <div class="ui-container success">
+            <h1>미로 탈출 성공!</h1>
+            <p>보물을 찾았습니다!</p>
+            <p class="time-result">걸린 시간: <span id="finalTime">00:00</span></p>
+            <p class="restart-message">새로운 게임을 시작합니다...</p>
+        </div>
+    </div>
+
     <script type="module" src="js/game.js"></script>
 </body>
 </html>

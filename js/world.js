@@ -11,6 +11,9 @@ const MAX_REMOVE_PER_FRAME = 5;
 const MAX_LOAD_PER_FRAME = 3;
 const INITIAL_ROOM_TYPE = 'Thirsty Corridor';
 
+const MAZE_WIDTH = 3;
+const MAZE_HEIGHT = 3;
+
 const loadedRooms = new Map();
 const roomPositions = new Map();
 const roomData = new Map();
@@ -27,19 +30,198 @@ let forceTransparencyUpdate = false;
 let cachedRoomQueueKeys = new Set();
 let roomQueueKeysDirty = true;
 
-const roomTypeNames = Object.keys(roomTypes);
-const weights = roomTypeNames.map(name => roomTypes[name].weight);
-const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+let mazeData = null;
+let mazeEndCell = { x: 0, y: 0 };
 
-function getRandomRoomType() {
-    let random = Math.random() * totalWeight;
+function getNeighbors(x, y, width, height) {
+    const neighbors = [];
+    if (x > 0) neighbors.push([x - 1, y, 'west']);
+    if (x < width - 1) neighbors.push([x + 1, y, 'east']);
+    if (y > 0) neighbors.push([x, y - 1, 'north']);
+    if (y < height - 1) neighbors.push([x, y + 1, 'south']);
+    return neighbors;
+}
+
+function generateMaze() {
+    const width = MAZE_WIDTH;
+    const height = MAZE_HEIGHT;
+    const cells = Array(height).fill(null).map(() => 
+        Array(width).fill(null).map(() => ({
+            north: true,
+            south: true,
+            east: true,
+            west: true,
+            visited: false
+        }))
+    );
     
-    for (let i = 0; i < roomTypeNames.length; i++) {
-        random -= weights[i];
-        if (random <= 0) return roomTypeNames[i];
+    const stack = [];
+    let currentX = 0;
+    let currentY = 0;
+    cells[currentY][currentX].visited = true;
+    let visitedCount = 1;
+    
+    while (visitedCount < width * height) {
+        const neighbors = getNeighbors(currentX, currentY, width, height)
+            .filter(([nx, ny]) => !cells[ny][nx].visited);
+        
+        if (neighbors.length > 0) {
+            const [nextX, nextY, direction] = neighbors[Math.floor(Math.random() * neighbors.length)];
+            
+            cells[currentY][currentX][direction] = false;
+            
+            const opposite = {
+                'north': 'south',
+                'south': 'north',
+                'east': 'west',
+                'west': 'east'
+            }[direction];
+            
+            cells[nextY][nextX][opposite] = false;
+            cells[nextY][nextX].visited = true;
+            visitedCount++;
+            
+            stack.push([currentX, currentY]);
+            currentX = nextX;
+            currentY = nextY;
+        } else if (stack.length > 0) {
+            [currentX, currentY] = stack.pop();
+        } else {
+            break;
+        }
     }
     
-    return roomTypeNames[roomTypeNames.length - 1];
+    const maxDistance = Math.abs((width - 1) - 0) + Math.abs((height - 1) - 0);
+    const minDistance = Math.floor(maxDistance * 0.7);
+    
+    const endCandidates = [];
+    let maxDist = 0;
+    
+    for (let x = 0; x < width; x++) {
+        for (let z = 0; z < height; z++) {
+            if (x === 0 && z === 0) continue;
+            const distance = Math.abs(x - 0) + Math.abs(z - 0);
+            if (distance >= minDistance) {
+                endCandidates.push({ x, y: z, distance });
+                maxDist = Math.max(maxDist, distance);
+            }
+        }
+    }
+    
+    if (endCandidates.length === 0) {
+        for (let x = 0; x < width; x++) {
+            for (let z = 0; z < height; z++) {
+                if (x === 0 && z === 0) continue;
+                const distance = Math.abs(x - 0) + Math.abs(z - 0);
+                endCandidates.push({ x, y: z, distance });
+                maxDist = Math.max(maxDist, distance);
+            }
+        }
+    }
+    
+    const farCandidates = endCandidates.filter(c => c.distance >= maxDist * 0.8);
+    const candidatesToUse = farCandidates.length > 0 ? farCandidates : endCandidates;
+    
+    const endCell = candidatesToUse.length > 0 
+        ? candidatesToUse[Math.floor(Math.random() * candidatesToUse.length)]
+        : { x: width - 1, y: height - 1 };
+    
+    const startCell = cells[0][0];
+    const hasOpening = !startCell.north || !startCell.south || !startCell.east || !startCell.west;
+    
+    if (!hasOpening) {
+        if (width > 1) {
+            cells[0][0].east = false;
+            cells[0][1].west = false;
+        } else if (height > 1) {
+            cells[0][0].south = false;
+            cells[1][0].north = false;
+        }
+    }
+    
+    return { cells, endCell };
+}
+
+function getMazeCell(cellX, cellZ) {
+    if (!mazeData) return null;
+    if (cellX < 0 || cellX >= MAZE_WIDTH || cellZ < 0 || cellZ >= MAZE_HEIGHT) {
+        return null;
+    }
+    return mazeData.cells[cellZ][cellX];
+}
+
+export function isEndCell(cellX, cellZ) {
+    if (!mazeData || !mazeEndCell) return false;
+    return mazeEndCell.x === cellX && mazeEndCell.y === cellZ;
+}
+
+function findMatchingRoomType(cell, cellX, cellZ) {
+    if (!cell) return INITIAL_ROOM_TYPE;
+    
+    if (isEndCell(cellX, cellZ)) {
+        return 'Treasure';
+    }
+    
+    const cellOpenings = {
+        north: !cell.north,
+        south: !cell.south,
+        east: !cell.east,
+        west: !cell.west
+    };
+    
+    const matchingRooms = [];
+    
+    for (const [roomTypeName, roomType] of Object.entries(roomTypes)) {
+        if (roomTypeName === 'Treasure') continue;
+        
+        const roomOpenings = {
+            north: roomType.north,
+            south: roomType.south,
+            east: roomType.east,
+            west: roomType.west
+        };
+        
+        let score = 0;
+        let totalOpenings = 0;
+        let perfectMatch = true;
+        
+        for (const dir of ['north', 'south', 'east', 'west']) {
+            if (cellOpenings[dir] && roomOpenings[dir]) {
+                score++;
+            }
+            if (cellOpenings[dir]) totalOpenings++;
+            if (cellOpenings[dir] !== roomOpenings[dir]) {
+                perfectMatch = false;
+            }
+        }
+        
+        if (totalOpenings > 0) {
+            const matchRatio = score / totalOpenings;
+            if (matchRatio >= 0.5) {
+                matchingRooms.push({
+                    name: roomTypeName,
+                    score: matchRatio,
+                    perfectMatch: perfectMatch
+                });
+            }
+        }
+    }
+    
+    if (matchingRooms.length === 0) {
+        return 'Garden';
+    }
+    
+    const perfectMatches = matchingRooms.filter(r => r.perfectMatch);
+    if (perfectMatches.length > 0) {
+        const candidates = perfectMatches;
+        return candidates[Math.floor(Math.random() * candidates.length)].name;
+    }
+    
+    matchingRooms.sort((a, b) => b.score - a.score);
+    const topScore = matchingRooms[0].score;
+    const topMatches = matchingRooms.filter(r => Math.abs(r.score - topScore) < 0.1);
+    
+    return topMatches[Math.floor(Math.random() * topMatches.length)].name;
 }
 
 function updateMaterialOpacity(material, opacity, materials, index) {
@@ -89,10 +271,10 @@ function setRoomOpacity(room, opacity) {
         
         child.material = isArray ? materials : materials[0];
         if (child.material) {
-            if (Array.isArray(child.material)) {
-                child.material.forEach(m => m.needsUpdate = true);
-            } else {
-                child.material.needsUpdate = true;
+        if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.needsUpdate = true);
+        } else {
+            child.material.needsUpdate = true;
             }
         }
     });
@@ -113,16 +295,16 @@ function updateRoomTransparency(playerRoomX, playerRoomZ) {
     const transparentRoomKeys = new Set([southKey, westKey, southwestKey]);
     
     if (!forceTransparencyUpdate && !playerRoomChanged && !lastWasUninitialized) {
-        let transparencyChanged = lastTransparentRooms.size !== transparentRoomKeys.size;
-        if (!transparencyChanged) {
-            for (const key of transparentRoomKeys) {
-                if (!lastTransparentRooms.has(key)) {
-                    transparencyChanged = true;
+        if (lastTransparentRooms.size === transparentRoomKeys.size) {
+            let changed = false;
+        for (const key of transparentRoomKeys) {
+            if (!lastTransparentRooms.has(key)) {
+                    changed = true;
                     break;
                 }
             }
+            if (!changed) return;
         }
-        if (!transparencyChanged) return;
     }
     
     forceTransparencyUpdate = false;
@@ -134,7 +316,7 @@ function updateRoomTransparency(playerRoomX, playerRoomZ) {
     
     for (const [roomKey, room] of loadedRooms) {
         if (!room) continue;
-        setRoomOpacity(room, transparentRoomKeys.has(roomKey) ? 0.1 : 1.0);
+        setRoomOpacity(room, transparentRoomKeys.has(roomKey) ? 0.3 : 1.0);
     }
     
     lastTransparentRooms = transparentRoomKeys;
@@ -176,6 +358,44 @@ function createWorldColliders(roomType, roomX, roomZ) {
     }));
 }
 
+function createMapBoundaryColliders() {
+    const wallThickness = 0.5;
+    const wallHeight = 5;
+    
+    const halfRoomSize = ROOM_SIZE / 2;
+    const mapWidth = MAZE_WIDTH * ROOM_SIZE;
+    const mapHeight = MAZE_HEIGHT * ROOM_SIZE;
+    
+    const mapMinX = -halfRoomSize;
+    const mapMaxX = mapWidth - halfRoomSize;
+    const mapMinZ = -halfRoomSize;
+    const mapMaxZ = mapHeight - halfRoomSize;
+    
+    const mapCenterX = (mapMinX + mapMaxX) / 2;
+    const mapCenterZ = (mapMinZ + mapMaxZ) / 2;
+    
+    const boundaryColliders = [
+        {
+            position: { x: mapCenterX, y: wallHeight / 2, z: mapMinZ - wallThickness / 2 },
+            size: { x: mapWidth + wallThickness * 2, y: wallHeight, z: wallThickness }
+        },
+        {
+            position: { x: mapCenterX, y: wallHeight / 2, z: mapMaxZ + wallThickness / 2 },
+            size: { x: mapWidth + wallThickness * 2, y: wallHeight, z: wallThickness }
+        },
+        {
+            position: { x: mapMinX - wallThickness / 2, y: wallHeight / 2, z: mapCenterZ },
+            size: { x: wallThickness, y: wallHeight, z: mapHeight + wallThickness * 2 }
+        },
+        {
+            position: { x: mapMaxX + wallThickness / 2, y: wallHeight / 2, z: mapCenterZ },
+            size: { x: wallThickness, y: wallHeight, z: mapHeight + wallThickness * 2 }
+        }
+    ];
+    
+    return boundaryColliders;
+}
+
 function setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType) {
     if (room.parent) room.parent.remove(room);
     
@@ -187,6 +407,19 @@ function setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType) {
     loadedRooms.set(roomKey, room);
     roomPositions.set(roomKey, { x: roomX, z: roomZ });
     forceTransparencyUpdate = true;
+}
+
+function loadAndSetupRoom(roomType, roomX, roomZ, roomKey, world, onError) {
+    loadRoomObject(roomType).then((object) => {
+        if (!hasTemplate(roomType)) {
+            registerTemplate(roomType, object.clone(true));
+        }
+        
+        const room = acquire(roomType) || object;
+        setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType);
+        roomData.set(roomKey, roomType);
+        loadingRooms.delete(roomKey);
+    }).catch(onError);
 }
 
 function processRoomQueue(world) {
@@ -206,6 +439,7 @@ function processRoomQueue(world) {
             const room = acquire(roomType);
             if (room) {
                 setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType);
+                roomData.set(roomKey, roomType);
                 processed++;
                 continue;
             }
@@ -221,24 +455,7 @@ function processRoomQueue(world) {
             }
         };
         
-        loadRoomObject(roomType).then((object) => {
-            if (!hasTemplate(roomType)) {
-                registerTemplate(roomType, object.clone(true));
-            }
-            
-            const room = acquire(roomType) || object;
-            if (room.parent) room.parent.remove(room);
-            
-            room.position.set(roomX * ROOM_SIZE, 0, roomZ * ROOM_SIZE);
-            room.visible = true;
-            
-            roomColliders.set(roomKey, createWorldColliders(roomType, roomX, roomZ));
-            world.add(room);
-            loadedRooms.set(roomKey, room);
-            roomPositions.set(roomKey, { x: roomX, z: roomZ });
-            forceTransparencyUpdate = true;
-            loadingRooms.delete(roomKey);
-        }).catch(onError);
+        loadAndSetupRoom(roomType, roomX, roomZ, roomKey, world, onError);
         
         processed++;
     }
@@ -248,35 +465,65 @@ export function createWorld() {
     return new Promise((resolve) => {
         const world = new THREE.Group();
         
-        loadRoomObject(INITIAL_ROOM_TYPE).then((object) => {
-            object.position.set(0, 0, 0);
-            object.visible = true;
-            
-            roomColliders.set('0,0', createWorldColliders(INITIAL_ROOM_TYPE, 0, 0));
-            world.add(object);
-            loadedRooms.set('0,0', object);
-            roomPositions.set('0,0', { x: 0, z: 0 });
-            
-            lastPlayerRoomX = 0;
-            lastPlayerRoomZ = 0;
-            lastTransparentRooms = new Set();
-            forceTransparencyUpdate = true;
-            
-            resolve(world);
-        });
+        const mazeResult = generateMaze();
+        mazeData = mazeResult;
+        mazeEndCell = mazeResult.endCell;
+        
+        const boundaryColliders = createMapBoundaryColliders();
+        roomColliders.set('boundary', boundaryColliders);
+        
+        const startRoomType = INITIAL_ROOM_TYPE;
+        
+        loadRoomObject(startRoomType).then((object) => {
+            setupRoomFromPool(object, 0, 0, '0,0', world, startRoomType);
+            roomData.set('0,0', startRoomType);
+                
+                lastPlayerRoomX = 0;
+                lastPlayerRoomZ = 0;
+                lastTransparentRooms = new Set();
+                forceTransparencyUpdate = true;
+                
+                resolve(world);
+            });
     });
 }
 
 function getRoomQueueKeys() {
-    if (!roomQueueKeysDirty) return cachedRoomQueueKeys;
-    
-    cachedRoomQueueKeys = new Set(roomQueue.map(item => item.roomKey));
+    if (roomQueueKeysDirty) {
+        cachedRoomQueueKeys.clear();
+        for (const item of roomQueue) {
+            cachedRoomQueueKeys.add(item.roomKey);
+        }
     roomQueueKeysDirty = false;
+    }
     return cachedRoomQueueKeys;
 }
 
 export function getRoomColliders() {
     return roomColliders;
+}
+
+export function getMazeData() {
+    return mazeData;
+}
+
+export function resetWorld() {
+    loadedRooms.clear();
+    roomPositions.clear();
+    roomData.clear();
+    loadingRooms.clear();
+    roomColliders.clear();
+    removeQueue.length = 0;
+    removeQueueSet.clear();
+    roomQueue.length = 0;
+    cachedRoomQueueKeys.clear();
+    roomQueueKeysDirty = true;
+    lastPlayerRoomX = Infinity;
+    lastPlayerRoomZ = Infinity;
+    lastTransparentRooms = new Set();
+    forceTransparencyUpdate = false;
+    mazeData = null;
+    mazeEndCell = { x: 0, y: 0 };
 }
 
 export function generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ) {
@@ -309,8 +556,14 @@ export function generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ) {
             if (loadedRooms.has(roomKey)) continue;
             if (loadingRooms.has(roomKey) || roomQueueKeys.has(roomKey)) continue;
             
-            const roomType = roomData.get(roomKey) || getRandomRoomType();
-            if (!roomData.has(roomKey)) roomData.set(roomKey, roomType);
+            const cellData = getMazeCell(x, z);
+            if (!cellData) continue;
+            
+            let roomType = roomData.get(roomKey);
+            if (!roomType) {
+                roomType = findMatchingRoomType(cellData, x, z);
+                roomData.set(roomKey, roomType);
+            }
             
             roomQueue.push({ roomKey, roomX: x, roomZ: z, roomType });
             cachedRoomQueueKeys.add(roomKey);

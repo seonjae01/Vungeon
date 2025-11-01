@@ -6,7 +6,7 @@ import { createWorld } from './world.js';
 export async function createScene() {
     const scene = new THREE.Scene();
     
-    scene.background = new THREE.Color(0xD2B48C);
+    scene.background = new THREE.Color(0x2a2a3e);
     
     scene.add(new THREE.AmbientLight(0xffffff, 1));
     

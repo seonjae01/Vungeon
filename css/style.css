@@ -1,10 +1,268 @@
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap');
+
 body {
     margin: 0;
     padding: 0;
     overflow: hidden;
+    font-family: 'Pixelify Sans', monospace;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
 }
 
 canvas {
     display: block;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    image-rendering: pixelated;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.ui-container {
+    background: #16213e;
+    border: 4px solid #0f3460;
+    padding: 30px;
+    max-width: 600px;
+    text-align: center;
+    box-shadow: 
+        0 0 0 4px #0f3460,
+        8px 8px 0 #0a1f3a;
+    animation: slideIn 0.3s steps(4) forwards;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ui-container h1 {
+    color: #00ff41;
+    margin: 0 0 20px 0;
+    font-size: 1.8em;
+    text-shadow: 
+        2px 2px 0 #0f3460,
+        4px 4px 0 #0a1f3a;
+    letter-spacing: 2px;
+}
+
+.game-title {
+    font-size: 3em !important;
+    color: #ffd700 !important;
+    text-shadow: 
+        3px 3px 0 #0f3460,
+        6px 6px 0 #0a1f3a,
+        0 0 20px rgba(255, 215, 0, 0.5);
+    margin: 20px 0 30px 0 !important;
+    letter-spacing: 4px;
+    animation: titleGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes titleGlow {
+    from {
+        text-shadow: 
+            3px 3px 0 #0f3460,
+            6px 6px 0 #0a1f3a,
+            0 0 20px rgba(255, 215, 0, 0.5);
+    }
+    to {
+        text-shadow: 
+            3px 3px 0 #0f3460,
+            6px 6px 0 #0a1f3a,
+            0 0 30px rgba(255, 215, 0, 0.8),
+            0 0 40px rgba(255, 215, 0, 0.4);
+    }
+}
+
+.ui-container.success h1 {
+    color: #ffd700;
+    text-shadow: 
+        2px 2px 0 #0f3460,
+        4px 4px 0 #0a1f3a,
+        0 0 10px #ffd700;
+    animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.instructions {
+    color: #eaeaea;
+    margin-bottom: 25px;
+    font-size: 0.7em;
+    line-height: 1.8;
+}
+
+.instructions h2 {
+    color: #00d9ff;
+    margin: 20px 0 15px 0;
+    font-size: 1em;
+    text-shadow: 
+        2px 2px 0 #0f3460;
+}
+
+.objective {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 3px solid #0f3460;
+}
+
+.objective h2 {
+    color: #ff6b6b;
+    font-size: 1em;
+    text-shadow: 
+        2px 2px 0 #0f3460;
+}
+
+.objective p {
+    line-height: 1.8;
+    font-size: 0.7em;
+    margin: 15px 0;
+}
+
+.objective strong {
+    color: #ffd700;
+    text-shadow: 
+        1px 1px 0 #0f3460;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin: 20px 0;
+}
+
+.key-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.key {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    line-height: 50px;
+    text-align: center;
+    background: #1a1a2e;
+    border: 3px solid #0f3460;
+    font-weight: normal;
+    color: #00ff41;
+    font-size: 1.2em;
+    text-shadow: 
+        1px 1px 0 #0a1f3a;
+    box-shadow: 
+        2px 2px 0 #0a1f3a;
+}
+
+.start-button {
+    background: #00d9ff;
+    border: 4px solid #0f3460;
+    color: #16213e;
+    padding: 15px 30px;
+    font-size: 0.9em;
+    font-weight: normal;
+    font-family: 'Pixelify Sans', monospace;
+    cursor: pointer;
+    box-shadow: 
+        4px 4px 0 #0a1f3a;
+    margin-top: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.start-button:hover {
+    background: #00ff41;
+    transform: translate(2px, 2px);
+    box-shadow: 
+        2px 2px 0 #0a1f3a;
+}
+
+.start-button:active {
+    transform: translate(4px, 4px);
+    box-shadow: 
+        0 0 0 #0a1f3a;
+}
+
+.start-button:focus {
+    outline: none;
+}
+
+.restart-message {
+    color: #00d9ff;
+    font-size: 0.6em;
+    margin-top: 20px;
+    animation: blink 1s steps(2) infinite;
+}
+
+.ui-container p {
+    color: #eaeaea;
+    font-size: 0.7em;
+    line-height: 1.8;
+    margin: 10px 0;
+}
+
+.auto-start-message {
+    color: #00d9ff;
+    font-size: 0.7em;
+    margin-top: 30px;
+    animation: blink 1s steps(2) infinite;
+    text-shadow: 
+        1px 1px 0 #0f3460;
+}
+
+.timer {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #00ff41;
+    font-size: 1.2em;
+    text-shadow: 
+        2px 2px 0 #0f3460,
+        4px 4px 0 #0a1f3a;
+    z-index: 100;
+    letter-spacing: 2px;
+}
+
+.time-result {
+    color: #00d9ff;
+    font-size: 0.8em;
+    margin: 20px 0;
+}
+
+.time-result span {
+    color: #ffd700;
+    font-size: 1.2em;
 }
 
