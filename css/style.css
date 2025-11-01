@@ -266,3 +266,41 @@ canvas {
     font-size: 1.2em;
 }
 
+.level-ui {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.level-ui.hidden {
+    display: none;
+}
+
+.level-text {
+    color: #ffd700;
+    font-size: 3.5em;
+    font-weight: 700;
+    text-shadow: 
+        3px 3px 0 #0f3460,
+        6px 6px 0 #0a1f3a,
+        0 0 20px rgba(255, 215, 0, 0.8);
+    letter-spacing: 4px;
+    animation: levelFadeOut 2s ease-out forwards;
+    -webkit-text-stroke: 2px #0a1f3a;
+}
+
+@keyframes levelFadeOut {
+    0% {
+        opacity: 1;
+    }
+    60% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+

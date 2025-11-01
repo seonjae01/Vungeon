@@ -30,8 +30,8 @@ export function createCamera() {
     return camera;
 }
 
-export function updateCameraPosition(camera, playerRoomX, playerRoomZ) {
-    if (playerRoomX === currentRoomX && playerRoomZ === currentRoomZ) {
+export function updateCameraPosition(camera, playerRoomX, playerRoomZ, immediate = false) {
+    if (playerRoomX === currentRoomX && playerRoomZ === currentRoomZ && !immediate) {
         camera.position.lerp(targetPosition, LERP_SPEED);
         return;
     }
@@ -44,5 +44,10 @@ export function updateCameraPosition(camera, playerRoomX, playerRoomZ) {
         CAMERA_HEIGHT,
         currentRoomZ * ROOM_SIZE + CAMERA_OFFSET
     );
-    camera.position.lerp(targetPosition, LERP_SPEED);
+    
+    if (immediate) {
+        camera.position.copy(targetPosition);
+    } else {
+        camera.position.lerp(targetPosition, LERP_SPEED);
+    }
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createScene } from './scene.js';
 import { setupInput, handlePlayerMovement } from './input.js';
-import { generateRoomsAroundPlayer, isEndCell, resetWorld } from './world.js';
+import { generateRoomsAroundPlayer, isEndCell, resetWorld, setMazeDifficulty, getMazeSize } from './world.js';
 
 const FRUSTUM_SIZE = 5;
 const ROOM_SIZE = 5;
@@ -17,6 +17,7 @@ let isFirstGame = true;
 let animationId = null;
 let gameStartTime = null;
 let timerInterval = null;
+let difficultyLevel = 1;
 
 function updateBlur() {
     if (!isLoading || !renderer?.domElement) return;
@@ -95,6 +96,8 @@ function showSuccessUI() {
             finalTimeElement.textContent = formatTime(elapsed);
         }
         
+        difficultyLevel++;
+        
         successUI.classList.remove('hidden');
         gameCompleted = true;
         
@@ -160,8 +163,27 @@ function restartGame() {
     }, 500);
 }
 
+function showLevelUI() {
+    const levelUI = document.getElementById('levelUI');
+    const levelNumber = document.getElementById('levelNumber');
+    
+    if (levelUI && levelNumber) {
+        levelNumber.textContent = difficultyLevel;
+        levelUI.classList.remove('hidden');
+        
+        setTimeout(() => {
+            levelUI.classList.add('hidden');
+        }, 2000);
+    }
+}
+
 async function startGame() {
     gameStarted = true;
+    
+    setMazeDifficulty(difficultyLevel);
+    const mazeSize = getMazeSize();
+    
+    showLevelUI();
     
     try {
         const sceneData = await createScene();

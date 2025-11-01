@@ -11,8 +11,21 @@ const MAX_REMOVE_PER_FRAME = 5;
 const MAX_LOAD_PER_FRAME = 3;
 const INITIAL_ROOM_TYPE = 'Thirsty Corridor';
 
-const MAZE_WIDTH = 3;
-const MAZE_HEIGHT = 3;
+let MAZE_WIDTH = 10;
+let MAZE_HEIGHT = 10;
+
+export function setMazeDifficulty(level) {
+    const baseSize = 10;
+    const sizeIncrease = level - 1;
+    const mazeSize = baseSize + sizeIncrease;
+    
+    MAZE_WIDTH = Math.min(mazeSize, 30);
+    MAZE_HEIGHT = Math.min(mazeSize, 30);
+}
+
+export function getMazeSize() {
+    return { width: MAZE_WIDTH, height: MAZE_HEIGHT };
+}
 
 const loadedRooms = new Map();
 const roomPositions = new Map();
@@ -32,6 +45,7 @@ let roomQueueKeysDirty = true;
 
 let mazeData = null;
 let mazeEndCell = { x: 0, y: 0 };
+let mazeStartCell = { x: 0, y: 0 };
 
 function getNeighbors(x, y, width, height) {
     const neighbors = [];
@@ -55,9 +69,12 @@ function generateMaze() {
         }))
     );
     
+    const startX = Math.floor(Math.random() * width);
+    const startY = Math.floor(Math.random() * height);
+    
     const stack = [];
-    let currentX = 0;
-    let currentY = 0;
+    let currentX = startX;
+    let currentY = startY;
     cells[currentY][currentX].visited = true;
     let visitedCount = 1;
     
@@ -91,16 +108,16 @@ function generateMaze() {
         }
     }
     
-    const maxDistance = Math.abs((width - 1) - 0) + Math.abs((height - 1) - 0);
-    const minDistance = Math.floor(maxDistance * 0.7);
+    const maxDistance = Math.sqrt(width * width + height * height);
+    const minDistance = Math.floor(maxDistance * 0.5);
     
     const endCandidates = [];
     let maxDist = 0;
     
     for (let x = 0; x < width; x++) {
         for (let z = 0; z < height; z++) {
-            if (x === 0 && z === 0) continue;
-            const distance = Math.abs(x - 0) + Math.abs(z - 0);
+            if (x === startX && z === startY) continue;
+            const distance = Math.sqrt((x - startX) ** 2 + (z - startY) ** 2);
             if (distance >= minDistance) {
                 endCandidates.push({ x, y: z, distance });
                 maxDist = Math.max(maxDist, distance);
@@ -111,35 +128,43 @@ function generateMaze() {
     if (endCandidates.length === 0) {
         for (let x = 0; x < width; x++) {
             for (let z = 0; z < height; z++) {
-                if (x === 0 && z === 0) continue;
-                const distance = Math.abs(x - 0) + Math.abs(z - 0);
+                if (x === startX && z === startY) continue;
+                const distance = Math.sqrt((x - startX) ** 2 + (z - startY) ** 2);
                 endCandidates.push({ x, y: z, distance });
                 maxDist = Math.max(maxDist, distance);
             }
         }
     }
     
-    const farCandidates = endCandidates.filter(c => c.distance >= maxDist * 0.8);
+    const farCandidates = endCandidates.filter(c => c.distance >= maxDist * 0.7);
     const candidatesToUse = farCandidates.length > 0 ? farCandidates : endCandidates;
     
     const endCell = candidatesToUse.length > 0 
         ? candidatesToUse[Math.floor(Math.random() * candidatesToUse.length)]
         : { x: width - 1, y: height - 1 };
     
-    const startCell = cells[0][0];
+    const startCell = cells[startY][startX];
     const hasOpening = !startCell.north || !startCell.south || !startCell.east || !startCell.west;
     
     if (!hasOpening) {
-        if (width > 1) {
-            cells[0][0].east = false;
-            cells[0][1].west = false;
-        } else if (height > 1) {
-            cells[0][0].south = false;
-            cells[1][0].north = false;
+        const directions = [];
+        if (startX > 0) directions.push('west');
+        if (startX < width - 1) directions.push('east');
+        if (startY > 0) directions.push('north');
+        if (startY < height - 1) directions.push('south');
+        
+        if (directions.length > 0) {
+            const randomDir = directions[Math.floor(Math.random() * directions.length)];
+            startCell[randomDir] = false;
+            
+            if (randomDir === 'west') cells[startY][startX - 1].east = false;
+            else if (randomDir === 'east') cells[startY][startX + 1].west = false;
+            else if (randomDir === 'north') cells[startY - 1][startX].south = false;
+            else if (randomDir === 'south') cells[startY + 1][startX].north = false;
         }
     }
     
-    return { cells, endCell };
+    return { cells, endCell, startCell: { x: startX, y: startY } };
 }
 
 function getMazeCell(cellX, cellZ) {
@@ -468,18 +493,22 @@ export function createWorld() {
         const mazeResult = generateMaze();
         mazeData = mazeResult;
         mazeEndCell = mazeResult.endCell;
+        mazeStartCell = mazeResult.startCell;
         
         const boundaryColliders = createMapBoundaryColliders();
         roomColliders.set('boundary', boundaryColliders);
         
         const startRoomType = INITIAL_ROOM_TYPE;
+        const startX = mazeStartCell.x;
+        const startZ = mazeStartCell.y;
+        const startKey = `${startX},${startZ}`;
         
         loadRoomObject(startRoomType).then((object) => {
-            setupRoomFromPool(object, 0, 0, '0,0', world, startRoomType);
-            roomData.set('0,0', startRoomType);
+            setupRoomFromPool(object, startX, startZ, startKey, world, startRoomType);
+            roomData.set(startKey, startRoomType);
                 
-                lastPlayerRoomX = 0;
-                lastPlayerRoomZ = 0;
+                lastPlayerRoomX = startX;
+                lastPlayerRoomZ = startZ;
                 lastTransparentRooms = new Set();
                 forceTransparencyUpdate = true;
                 
@@ -507,6 +536,17 @@ export function getMazeData() {
     return mazeData;
 }
 
+export function getStartCell() {
+    return mazeStartCell;
+}
+
+export function getCellWorldPosition(cellX, cellZ) {
+    return {
+        x: cellX * ROOM_SIZE,
+        z: cellZ * ROOM_SIZE
+    };
+}
+
 export function resetWorld() {
     loadedRooms.clear();
     roomPositions.clear();
@@ -524,6 +564,7 @@ export function resetWorld() {
     forceTransparencyUpdate = false;
     mazeData = null;
     mazeEndCell = { x: 0, y: 0 };
+    mazeStartCell = { x: 0, y: 0 };
 }
 
 export function generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ) {
