@@ -6,12 +6,13 @@ const PLAYER_DEPTH = 0.4;
 const PLAYER_COLOR = 0xffffff;
 const PLAYER_Y = 1.8;
 const MOVE_SPEED = 0.05;
+
 export function createPlayer() {
     const geometry = new THREE.BoxGeometry(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
     const material = new THREE.MeshStandardMaterial({ 
         color: PLAYER_COLOR,
-        emissive: 0x222222,
-        emissiveIntensity: 0.3
+        emissive: 0x444444,
+        emissiveIntensity: 0.5
     });
     const player = new THREE.Mesh(geometry, material);
     

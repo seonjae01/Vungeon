@@ -56,6 +56,7 @@ function getNeighbors(x, y, width, height) {
     return neighbors;
 }
 
+// 재귀 백트래킹 알고리즘으로 미로 생성
 function generateMaze() {
     const width = MAZE_WIDTH;
     const height = MAZE_HEIGHT;
@@ -69,6 +70,7 @@ function generateMaze() {
         }))
     );
     
+    // 랜덤 시작 위치 선택
     const startX = Math.floor(Math.random() * width);
     const startY = Math.floor(Math.random() * height);
     
@@ -78,6 +80,7 @@ function generateMaze() {
     cells[currentY][currentX].visited = true;
     let visitedCount = 1;
     
+    // 미로 생성 알고리즘 (Recursive Backtracking)
     while (visitedCount < width * height) {
         const neighbors = getNeighbors(currentX, currentY, width, height)
             .filter(([nx, ny]) => !cells[ny][nx].visited);
@@ -108,41 +111,50 @@ function generateMaze() {
         }
     }
     
-    const maxDistance = Math.sqrt(width * width + height * height);
-    const minDistance = Math.floor(maxDistance * 0.5);
+    // 시작 지점에서 충분히 먼 거리의 종료 지점 찾기
+    const maxDistanceSq = width * width + height * height;
+    const minDistanceSq = maxDistanceSq * 0.25;
     
     const endCandidates = [];
-    let maxDist = 0;
+    let maxDistSq = 0;
     
     for (let x = 0; x < width; x++) {
         for (let z = 0; z < height; z++) {
             if (x === startX && z === startY) continue;
-            const distance = Math.sqrt((x - startX) ** 2 + (z - startY) ** 2);
-            if (distance >= minDistance) {
-                endCandidates.push({ x, y: z, distance });
-                maxDist = Math.max(maxDist, distance);
+            const dx = x - startX;
+            const dz = z - startY;
+            const distanceSq = dx * dx + dz * dz;
+            if (distanceSq >= minDistanceSq) {
+                endCandidates.push({ x, y: z, distanceSq });
+                maxDistSq = Math.max(maxDistSq, distanceSq);
             }
         }
     }
     
+    // 최소 거리 조건을 만족하는 셀이 없으면 모든 셀을 후보로 추가
     if (endCandidates.length === 0) {
         for (let x = 0; x < width; x++) {
             for (let z = 0; z < height; z++) {
                 if (x === startX && z === startY) continue;
-                const distance = Math.sqrt((x - startX) ** 2 + (z - startY) ** 2);
-                endCandidates.push({ x, y: z, distance });
-                maxDist = Math.max(maxDist, distance);
+                const dx = x - startX;
+                const dz = z - startY;
+                const distanceSq = dx * dx + dz * dz;
+                endCandidates.push({ x, y: z, distanceSq });
+                maxDistSq = Math.max(maxDistSq, distanceSq);
             }
         }
     }
     
-    const farCandidates = endCandidates.filter(c => c.distance >= maxDist * 0.7);
+    // 가장 먼 거리의 셀들 중에서 랜덤하게 종료 지점 선택
+    const thresholdSq = maxDistSq * 0.49;
+    const farCandidates = endCandidates.filter(c => c.distanceSq >= thresholdSq);
     const candidatesToUse = farCandidates.length > 0 ? farCandidates : endCandidates;
     
     const endCell = candidatesToUse.length > 0 
         ? candidatesToUse[Math.floor(Math.random() * candidatesToUse.length)]
         : { x: width - 1, y: height - 1 };
     
+    // 시작 셀이 막혀있으면 최소 하나의 통로 확보
     const startCell = cells[startY][startX];
     const hasOpening = !startCell.north || !startCell.south || !startCell.east || !startCell.west;
     
@@ -157,6 +169,7 @@ function generateMaze() {
             const randomDir = directions[Math.floor(Math.random() * directions.length)];
             startCell[randomDir] = false;
             
+            // 반대편 셀의 벽도 제거
             if (randomDir === 'west') cells[startY][startX - 1].east = false;
             else if (randomDir === 'east') cells[startY][startX + 1].west = false;
             else if (randomDir === 'north') cells[startY - 1][startX].south = false;
@@ -180,9 +193,11 @@ export function isEndCell(cellX, cellZ) {
     return mazeEndCell.x === cellX && mazeEndCell.y === cellZ;
 }
 
+// 미로 셀의 구조에 맞는 방 타입 선택
 function findMatchingRoomType(cell, cellX, cellZ) {
     if (!cell) return INITIAL_ROOM_TYPE;
     
+    // 종료 지점은 보물 방으로 고정
     if (isEndCell(cellX, cellZ)) {
         return 'Treasure';
     }
@@ -196,6 +211,7 @@ function findMatchingRoomType(cell, cellX, cellZ) {
     
     const matchingRooms = [];
     
+    // 각 방 타입과 셀 구조의 매칭 점수 계산
     for (const [roomTypeName, roomType] of Object.entries(roomTypes)) {
         if (roomTypeName === 'Treasure') continue;
         
@@ -236,10 +252,10 @@ function findMatchingRoomType(cell, cellX, cellZ) {
         return 'Garden';
     }
     
+    // 완벽히 일치하는 방 우선 선택, 없으면 높은 점수 방 중 랜덤
     const perfectMatches = matchingRooms.filter(r => r.perfectMatch);
     if (perfectMatches.length > 0) {
-        const candidates = perfectMatches;
-        return candidates[Math.floor(Math.random() * candidates.length)].name;
+        return perfectMatches[Math.floor(Math.random() * perfectMatches.length)].name;
     }
     
     matchingRooms.sort((a, b) => b.score - a.score);
@@ -278,31 +294,38 @@ function updateMaterialOpacity(material, opacity, materials, index) {
 function setRoomOpacity(room, opacity) {
     if (!room) return;
     
-    room.traverse((child) => {
-        if (!child.isMesh || !child.material) return;
+    const stack = [room];
+    while (stack.length > 0) {
+        const child = stack.pop();
         
+        if (child.isMesh && child.material) {
         const isArray = Array.isArray(child.material);
-        const materials = isArray ? [...child.material] : [child.material];
+            const materials = isArray ? [...child.material] : [child.material];
         let materialChanged = false;
         
         for (let i = 0; i < materials.length; i++) {
-            if (!materials[i]) continue;
-            if (updateMaterialOpacity(materials[i], opacity, materials, i)) {
-                materialChanged = true;
+                if (!materials[i]) continue;
+                if (updateMaterialOpacity(materials[i], opacity, materials, i)) {
+                    materialChanged = true;
+                }
             }
-        }
-        
-        if (!materialChanged) return;
-        
+            
+            if (materialChanged) {
         child.material = isArray ? materials : materials[0];
-        if (child.material) {
         if (Array.isArray(child.material)) {
             child.material.forEach(m => m.needsUpdate = true);
         } else {
             child.material.needsUpdate = true;
+        }
             }
         }
-    });
+        
+        if (child.children && child.children.length > 0) {
+            for (let i = child.children.length - 1; i >= 0; i--) {
+                stack.push(child.children[i]);
+            }
+        }
+    }
 }
 
 function updateRoomTransparency(playerRoomX, playerRoomZ) {
@@ -321,14 +344,11 @@ function updateRoomTransparency(playerRoomX, playerRoomZ) {
     
     if (!forceTransparencyUpdate && !playerRoomChanged && !lastWasUninitialized) {
         if (lastTransparentRooms.size === transparentRoomKeys.size) {
-            let changed = false;
-        for (const key of transparentRoomKeys) {
-            if (!lastTransparentRooms.has(key)) {
-                    changed = true;
-                    break;
-                }
+            if (lastTransparentRooms.has(southKey) && 
+                lastTransparentRooms.has(westKey) && 
+                lastTransparentRooms.has(southwestKey)) {
+                return;
             }
-            if (!changed) return;
         }
     }
     
@@ -506,9 +526,9 @@ export function createWorld() {
         loadRoomObject(startRoomType).then((object) => {
             setupRoomFromPool(object, startX, startZ, startKey, world, startRoomType);
             roomData.set(startKey, startRoomType);
-                
-                lastPlayerRoomX = startX;
-                lastPlayerRoomZ = startZ;
+            
+            lastPlayerRoomX = startX;
+            lastPlayerRoomZ = startZ;
                 lastTransparentRooms = new Set();
                 forceTransparencyUpdate = true;
                 
@@ -532,19 +552,8 @@ export function getRoomColliders() {
     return roomColliders;
 }
 
-export function getMazeData() {
-    return mazeData;
-}
-
 export function getStartCell() {
     return mazeStartCell;
-}
-
-export function getCellWorldPosition(cellX, cellZ) {
-    return {
-        x: cellX * ROOM_SIZE,
-        z: cellZ * ROOM_SIZE
-    };
 }
 
 export function resetWorld() {
@@ -567,17 +576,19 @@ export function resetWorld() {
     mazeStartCell = { x: 0, y: 0 };
 }
 
+// 플레이어 주변의 방 동적 로딩 및 언로딩
 export function generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ) {
     const roomChanged = playerRoomX !== lastPlayerRoomX || playerRoomZ !== lastPlayerRoomZ;
     
+    // 플레이어가 다른 방으로 이동했을 때 거리 기준으로 방 제거 큐에 추가
     if (roomChanged || lastPlayerRoomX === Infinity) {
         lastPlayerRoomX = playerRoomX;
         lastPlayerRoomZ = playerRoomZ;
         
         for (const [roomKey, pos] of roomPositions) {
-            const distance = Math.max(Math.abs(pos.x - playerRoomX), Math.abs(pos.z - playerRoomZ));
-            
-            if (distance > MAX_DISTANCE && !removeQueueSet.has(roomKey)) {
+            const dx = Math.abs(pos.x - playerRoomX);
+            const dz = Math.abs(pos.z - playerRoomZ);
+            if ((dx > MAX_DISTANCE || dz > MAX_DISTANCE) && !removeQueueSet.has(roomKey)) {
                 removeQueue.push(roomKey);
                 removeQueueSet.add(roomKey);
             }
@@ -586,10 +597,12 @@ export function generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ) {
         roomQueueKeysDirty = true;
     }
     
+    // 카메라를 가리는 방 투명도 처리
     updateRoomTransparency(playerRoomX, playerRoomZ);
     
     const roomQueueKeys = getRoomQueueKeys();
     
+    // 플레이어 주변 MAX_DISTANCE 범위 내의 방 로딩 큐에 추가
     for (let x = playerRoomX - MAX_DISTANCE; x <= playerRoomX + MAX_DISTANCE; x++) {
         for (let z = playerRoomZ - MAX_DISTANCE; z <= playerRoomZ + MAX_DISTANCE; z++) {
             const roomKey = `${x},${z}`;
@@ -611,6 +624,7 @@ export function generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ) {
         }
     }
     
+    // 프레임당 제한된 수의 방 제거 및 로딩 처리
     processRemoveQueue(world);
     processRoomQueue(world);
 }

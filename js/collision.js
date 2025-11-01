@@ -14,70 +14,66 @@ export function checkBoxCollision(box1, box2) {
            box1.position.z + b1HalfZ >= box2.position.z - b2HalfZ;
 }
 
+// 플레이어 이동 가능 여부 충돌 감지 (AABB)
 export function canMove(player, playerPosition, moveVector, roomColliders) {
     if (moveVector.lengthSq() === 0) return true;
     
     const radius = player?.userData?.collider?.radius ?? 0.5;
     const height = player?.userData?.collider?.height ?? 1;
-    const playerFootY = playerPosition.y - height * 0.5;
+    const halfHeight = height * 0.5;
+    const playerFootY = playerPosition.y - halfHeight;
     
     const nextX = playerPosition.x + moveVector.x;
     const nextZ = playerPosition.z + moveVector.z;
     
+    const playerMinX = nextX - radius;
+    const playerMaxX = nextX + radius;
+    const playerMinZ = nextZ - radius;
+    const playerMaxZ = nextZ + radius;
+    const playerMinY = playerFootY;
+    const playerMaxY = playerFootY + height;
+    
     const playerBox = {
-        position: {
-            x: nextX,
-            y: playerFootY,
-            z: nextZ
-        },
-        size: {
-            x: radius * 2,
-            y: height,
-            z: radius * 2
-        }
+        position: { x: nextX, y: playerFootY, z: nextZ },
+        size: { x: radius * 2, y: height, z: radius * 2 }
     };
     
+    // 맵 경계 충돌 체크 (우선 처리)
     const boundaryKey = 'boundary';
     const boundaryColliders = roomColliders.get(boundaryKey);
     
     if (boundaryColliders && Array.isArray(boundaryColliders)) {
-        for (const collider of boundaryColliders) {
-            if (!collider || !collider.position || !collider.size) continue;
+        for (let i = 0; i < boundaryColliders.length; i++) {
+            const collider = boundaryColliders[i];
+            if (!collider?.position || !collider?.size) continue;
             
-            const playerMinX = nextX - radius;
-            const playerMaxX = nextX + radius;
-            const playerMinZ = nextZ - radius;
-            const playerMaxZ = nextZ + radius;
+            const colliderHalfX = collider.size.x * 0.5;
+            const colliderHalfZ = collider.size.z * 0.5;
+            const colliderMinX = collider.position.x - colliderHalfX;
+            const colliderMaxX = collider.position.x + colliderHalfX;
+            const colliderMinZ = collider.position.z - colliderHalfZ;
+            const colliderMaxZ = collider.position.z + colliderHalfZ;
             
-            const colliderMinX = collider.position.x - collider.size.x / 2;
-            const colliderMaxX = collider.position.x + collider.size.x / 2;
-            const colliderMinZ = collider.position.z - collider.size.z / 2;
-            const colliderMaxZ = collider.position.z + collider.size.z / 2;
-            
-            const xOverlap = playerMinX <= colliderMaxX && playerMaxX >= colliderMinX;
-            const zOverlap = playerMinZ <= colliderMaxZ && playerMaxZ >= colliderMinZ;
-            
-            if (xOverlap && zOverlap) {
-                const playerMinY = playerFootY;
-                const playerMaxY = playerFootY + height;
-                const colliderMinY = collider.position.y - collider.size.y / 2;
-                const colliderMaxY = collider.position.y + collider.size.y / 2;
+            if (playerMinX <= colliderMaxX && playerMaxX >= colliderMinX &&
+                playerMinZ <= colliderMaxZ && playerMaxZ >= colliderMinZ) {
+                const colliderHalfY = collider.size.y * 0.5;
+                const colliderMinY = collider.position.y - colliderHalfY;
+                const colliderMaxY = collider.position.y + colliderHalfY;
                 
-                const yOverlap = playerMinY <= colliderMaxY && playerMaxY >= colliderMinY;
-                
-                if (yOverlap) {
+                if (playerMinY <= colliderMaxY && playerMaxY >= colliderMinY) {
                     return false;
                 }
             }
         }
     }
     
+    // 방 내부 오브젝트 충돌 체크
     for (const [key, colliders] of roomColliders) {
-        if (key === boundaryKey) continue;
-        if (!Array.isArray(colliders)) continue;
+        if (key === boundaryKey || !Array.isArray(colliders)) continue;
         
-        for (const collider of colliders) {
-            if (!collider || !collider.position || !collider.size) continue;
+        for (let i = 0; i < colliders.length; i++) {
+            const collider = colliders[i];
+            if (!collider?.position || !collider?.size) continue;
             
             if (checkBoxCollision(playerBox, collider)) {
                 return false;

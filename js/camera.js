@@ -8,7 +8,7 @@ const ROOM_SIZE = 5;
 
 let currentRoomX = 0;
 let currentRoomZ = 0;
-let targetPosition = new THREE.Vector3();
+const targetPosition = new THREE.Vector3();
 
 export function createCamera() {
     const aspect = window.innerWidth / window.innerHeight;

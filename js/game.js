@@ -5,7 +5,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createScene } from './scene.js';
 import { setupInput, handlePlayerMovement } from './input.js';
-import { generateRoomsAroundPlayer, isEndCell, resetWorld, setMazeDifficulty, getMazeSize } from './world.js';
+import { generateRoomsAroundPlayer, isEndCell, resetWorld, setMazeDifficulty } from './world.js';
 
 const FRUSTUM_SIZE = 5;
 const ROOM_SIZE = 5;
@@ -13,7 +13,6 @@ const BLUR_LERP_SPEED = 0.05;
 
 let scene, camera, renderer, player, world, updateCameraPosition;
 let composer = null;
-let bloomPass = null;
 let isLoading = true;
 let blurAmount = 10;
 let gameStarted = false;
@@ -24,6 +23,14 @@ let animationId = null;
 let gameStartTime = null;
 let timerInterval = null;
 let difficultyLevel = 1;
+
+let timerElement = null;
+let successUI = null;
+let finalTimeElement = null;
+let levelUI = null;
+let levelNumber = null;
+let startUI = null;
+let autoStartTimer = null;
 
 function updateBlur() {
     if (!isLoading || !renderer?.domElement) return;
@@ -39,12 +46,10 @@ function updateBlur() {
     renderer.domElement.style.filter = `blur(${blurAmount}px)`;
 }
 
-let autoStartTimer = null;
-
 function showStartUI() {
     if (!isFirstGame) return;
     
-    const startUI = document.getElementById('startUI');
+    if (!startUI) startUI = document.getElementById('startUI');
     
     if (startUI) {
         startUI.classList.remove('hidden');
@@ -71,16 +76,16 @@ function updateTimer() {
     if (!gameStartTime || gameCompleted) return;
     
     const elapsed = (Date.now() - gameStartTime) / 1000;
-    const timerElement = document.getElementById('timer');
     if (timerElement) {
         timerElement.textContent = formatTime(elapsed);
     }
 }
 
 function startTimer() {
+    if (!timerElement) timerElement = document.getElementById('timer');
     gameStartTime = Date.now();
     if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(updateTimer, 100);
+    timerInterval = setInterval(updateTimer, 250);
     updateTimer();
 }
 
@@ -92,26 +97,26 @@ function stopTimer() {
 }
 
 function showSuccessUI() {
-    const successUI = document.getElementById('successUI');
-    if (successUI) {
-        stopTimer();
-        
-        const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 0;
-        const finalTimeElement = document.getElementById('finalTime');
-        if (finalTimeElement) {
-            finalTimeElement.textContent = formatTime(elapsed);
-        }
-        
-        difficultyLevel++;
-        
-        successUI.classList.remove('hidden');
-        gameCompleted = true;
-        
-        if (restartTimer) clearTimeout(restartTimer);
-        restartTimer = setTimeout(() => {
-            restartGame();
-        }, 3000);
+    if (!successUI) successUI = document.getElementById('successUI');
+    if (!successUI) return;
+    
+    stopTimer();
+    
+    const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 0;
+    if (!finalTimeElement) finalTimeElement = document.getElementById('finalTime');
+    if (finalTimeElement) {
+        finalTimeElement.textContent = formatTime(elapsed);
     }
+    
+    difficultyLevel++;
+    
+    successUI.classList.remove('hidden');
+    gameCompleted = true;
+    
+    if (restartTimer) clearTimeout(restartTimer);
+    restartTimer = setTimeout(() => {
+        restartGame();
+    }, 3000);
 }
 
 function restartGame() {
@@ -121,7 +126,6 @@ function restartGame() {
     stopTimer();
     gameStartTime = null;
     
-    const timerElement = document.getElementById('timer');
     if (timerElement) {
         timerElement.textContent = '00:00';
     }
@@ -141,7 +145,6 @@ function restartGame() {
         restartTimer = null;
     }
     
-    const successUI = document.getElementById('successUI');
     if (successUI) {
         successUI.classList.add('hidden');
     }
@@ -159,8 +162,6 @@ function restartGame() {
         composer = null;
     }
     
-    bloomPass = null;
-    
     resetWorld();
     
     scene = null;
@@ -177,8 +178,8 @@ function restartGame() {
 }
 
 function showLevelUI() {
-    const levelUI = document.getElementById('levelUI');
-    const levelNumber = document.getElementById('levelNumber');
+    if (!levelUI) levelUI = document.getElementById('levelUI');
+    if (!levelNumber) levelNumber = document.getElementById('levelNumber');
     
     if (levelUI && levelNumber) {
         levelNumber.textContent = difficultyLevel;
@@ -194,8 +195,6 @@ async function startGame() {
     gameStarted = true;
     
     setMazeDifficulty(difficultyLevel);
-    const mazeSize = getMazeSize();
-    
     showLevelUI();
     
     try {
@@ -204,27 +203,35 @@ async function startGame() {
         
         setupInput();
         
+        // 렌더러 초기화 (성능 최적화: antialias 비활성화)
         renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
+            antialias: false,
             powerPreference: 'high-performance'
         });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        const pixelRatio = Math.min(window.devicePixelRatio, 1.5);
+        renderer.setPixelRatio(pixelRatio);
         renderer.sortObjects = false;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
         document.body.appendChild(renderer.domElement);
         
+        // 포스트 프로세싱 설정 (Bloom 효과: 50% 해상도로 성능 최적화)
+        const bloomResolution = new THREE.Vector2(
+            Math.floor(window.innerWidth * 0.5),
+            Math.floor(window.innerHeight * 0.5)
+        );
+        
         composer = new EffectComposer(renderer);
+        composer.setPixelRatio(pixelRatio);
+        composer.setSize(window.innerWidth, window.innerHeight);
         
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
         
-        bloomPass = new UnrealBloomPass(
-            new THREE.Vector2(window.innerWidth, window.innerHeight),
-            1.5,
+        const bloomPass = new UnrealBloomPass(
+            bloomResolution,
+            1.0,
             0.4,
-            0.85
+            0.75
         );
         composer.addPass(bloomPass);
         
@@ -262,41 +269,50 @@ function handleResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     
     if (composer) {
+        const pixelRatio = Math.min(window.devicePixelRatio, 1.5);
+        composer.setPixelRatio(pixelRatio);
         composer.setSize(window.innerWidth, window.innerHeight);
-    }
-    
-    if (bloomPass) {
-        bloomPass.setSize(window.innerWidth, window.innerHeight);
+        
+        const bloomPass = composer.passes[1];
+        if (bloomPass && bloomPass.setSize) {
+            bloomPass.setSize(
+                Math.floor(window.innerWidth * 0.5),
+                Math.floor(window.innerHeight * 0.5)
+            );
+        }
     }
 }
 
 function animate() {
-    if (!gameStarted || gameCompleted) {
-        animationId = requestAnimationFrame(animate);
+    animationId = requestAnimationFrame(animate);
+    
+    if (!gameStarted || gameCompleted) return;
+    
+    // 플레이어 이동 처리
+    if (!isLoading && player) handlePlayerMovement(player);
+    
+    if (!player || !camera || !world || !renderer) return;
+    
+    // 플레이어가 있는 방 좌표 계산
+    const { x: playerX, z: playerZ } = player.position;
+    const playerRoomX = Math.round(playerX / ROOM_SIZE);
+    const playerRoomZ = Math.round(playerZ / ROOM_SIZE);
+    
+    // 보물 방 도달 체크
+    if (!gameCompleted && isEndCell(playerRoomX, playerRoomZ)) {
+        showSuccessUI();
         return;
     }
     
-    animationId = requestAnimationFrame(animate);
+    // 카메라 위치 업데이트 및 주변 방 생성
+    updateCameraPosition(camera, playerRoomX, playerRoomZ);
+    generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ);
     
-    if (!isLoading && player) handlePlayerMovement(player);
-    
-    if (player && camera && world && renderer) {
-        const { x: playerX, z: playerZ } = player.position;
-        const playerRoomX = Math.round(playerX / ROOM_SIZE);
-        const playerRoomZ = Math.round(playerZ / ROOM_SIZE);
-        
-        if (!gameCompleted && isEndCell(playerRoomX, playerRoomZ)) {
-            showSuccessUI();
-        }
-        
-        updateCameraPosition(camera, playerRoomX, playerRoomZ);
-        generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ);
-        
-        if (composer) {
-            composer.render();
-        } else {
-            renderer.render(scene, camera);
-        }
+    // 렌더링 (포스트 프로세싱 적용)
+    if (composer) {
+        composer.render();
+    } else {
+        renderer.render(scene, camera);
     }
     
     updateBlur();
