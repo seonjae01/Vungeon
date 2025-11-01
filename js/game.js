@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createScene } from './scene.js';
 import { setupInput, handlePlayerMovement } from './input.js';
 import { generateRoomsAroundPlayer, isEndCell, resetWorld, setMazeDifficulty, getMazeSize } from './world.js';
@@ -8,6 +12,8 @@ const ROOM_SIZE = 5;
 const BLUR_LERP_SPEED = 0.05;
 
 let scene, camera, renderer, player, world, updateCameraPosition;
+let composer = null;
+let bloomPass = null;
 let isLoading = true;
 let blurAmount = 10;
 let gameStarted = false;
@@ -148,6 +154,13 @@ function restartGame() {
         world.parent.remove(world);
     }
     
+    if (composer) {
+        composer.dispose();
+        composer = null;
+    }
+    
+    bloomPass = null;
+    
     resetWorld();
     
     scene = null;
@@ -192,13 +205,31 @@ async function startGame() {
         setupInput();
         
         renderer = new THREE.WebGLRenderer({ 
-            antialias: false,
+            antialias: true,
             powerPreference: 'high-performance'
         });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         renderer.sortObjects = false;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
         document.body.appendChild(renderer.domElement);
+        
+        composer = new EffectComposer(renderer);
+        
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+        
+        bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            1.5,
+            0.4,
+            0.85
+        );
+        composer.addPass(bloomPass);
+        
+        const outputPass = new OutputPass();
+        composer.addPass(outputPass);
         
         renderer.domElement.style.filter = `blur(${blurAmount}px)`;
         renderer.domElement.style.transition = 'none';
@@ -219,6 +250,8 @@ async function init() {
 }
 
 function handleResize() {
+    if (!camera || !renderer) return;
+    
     const aspect = window.innerWidth / window.innerHeight;
     
     camera.left = FRUSTUM_SIZE * aspect / -2;
@@ -227,6 +260,14 @@ function handleResize() {
     camera.bottom = FRUSTUM_SIZE / -2;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    if (composer) {
+        composer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    if (bloomPass) {
+        bloomPass.setSize(window.innerWidth, window.innerHeight);
+    }
 }
 
 function animate() {
@@ -251,7 +292,11 @@ function animate() {
         updateCameraPosition(camera, playerRoomX, playerRoomZ);
         generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ);
         
-        renderer.render(scene, camera);
+        if (composer) {
+            composer.render();
+        } else {
+            renderer.render(scene, camera);
+        }
     }
     
     updateBlur();

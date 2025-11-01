@@ -8,7 +8,17 @@ export async function createScene() {
     
     scene.background = new THREE.Color(0x2a2a3e);
     
-    scene.add(new THREE.AmbientLight(0xffffff, 1));
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 20, 10);
+    directionalLight.castShadow = false;
+    scene.add(directionalLight);
+    
+    const pointLight = new THREE.PointLight(0xffaa00, 0.5, 50);
+    pointLight.position.set(0, 10, 0);
+    scene.add(pointLight);
     
     const player = createPlayer();
     const world = await createWorld();

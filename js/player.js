@@ -8,7 +8,11 @@ const PLAYER_Y = 1.8;
 const MOVE_SPEED = 0.05;
 export function createPlayer() {
     const geometry = new THREE.BoxGeometry(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
-    const material = new THREE.MeshBasicMaterial({ color: PLAYER_COLOR });
+    const material = new THREE.MeshStandardMaterial({ 
+        color: PLAYER_COLOR,
+        emissive: 0x222222,
+        emissiveIntensity: 0.3
+    });
     const player = new THREE.Mesh(geometry, material);
     
     const edgesGeometry = new THREE.EdgesGeometry(geometry);
