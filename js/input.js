@@ -5,8 +5,7 @@ import { getRoomColliders } from './world.js';
 const keys = {};
 const moveVector = new THREE.Vector3();
 
-export function setupInput(player, world) {
-    
+export function setupInput() {
     document.addEventListener('keydown', (event) => {
         keys[event.code] = true;
     });
@@ -16,9 +15,8 @@ export function setupInput(player, world) {
     });
 }
 
-export function handlePlayerMovement(player, world) {
+export function handlePlayerMovement(player) {
     const speed = player.moveSpeed;
-    
     moveVector.set(0, 0, 0);
     
     if (keys['KeyW']) {
@@ -38,9 +36,9 @@ export function handlePlayerMovement(player, world) {
         moveVector.z -= speed;
     }
     
-    if (moveVector.length() > 0) {
+    if (moveVector.lengthSq() > 0) {
         const roomColliders = getRoomColliders();
-        if (canMove(player, player.position, world, moveVector, roomColliders)) {
+        if (canMove(player, player.position, moveVector, roomColliders)) {
             player.position.add(moveVector);
         }
     }

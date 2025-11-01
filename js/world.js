@@ -22,12 +22,10 @@ const roomQueue = [];
 let lastPlayerRoomX = Infinity;
 let lastPlayerRoomZ = Infinity;
 let lastTransparentRooms = new Set();
-let initialRoomLoaded = false;
 let forceTransparencyUpdate = false;
 
 let cachedRoomQueueKeys = new Set();
 let roomQueueKeysDirty = true;
-
 
 const roomTypeNames = Object.keys(roomTypes);
 const weights = roomTypeNames.map(name => roomTypes[name].weight);
@@ -47,12 +45,12 @@ function getRandomRoomType() {
 function updateMaterialOpacity(material, opacity, materials, index) {
     if (opacity < 1.0) {
         if (!material.userData.isCloned) {
-            material = material.clone();
-            material.userData.isCloned = true;
-            materials[index] = material;
+            materials[index] = material.clone();
+            materials[index].userData.isCloned = true;
+            material = materials[index];
         }
         
-        if (material.transparent !== true || material.opacity !== opacity) {
+        if (!material.transparent || material.opacity !== opacity) {
             material.transparent = true;
             material.opacity = opacity;
             material.depthWrite = false;
@@ -61,7 +59,7 @@ function updateMaterialOpacity(material, opacity, materials, index) {
         return true;
     }
     
-    if (material.transparent !== false || material.opacity !== 1.0) {
+    if (material.transparent || material.opacity !== 1.0) {
         material.transparent = false;
         material.opacity = 1.0;
         material.depthWrite = true;
@@ -77,36 +75,30 @@ function setRoomOpacity(room, opacity) {
         if (!child.isMesh || !child.material) return;
         
         const isArray = Array.isArray(child.material);
-        let materials = isArray ? [...child.material] : [child.material];
+        const materials = isArray ? [...child.material] : [child.material];
         let materialChanged = false;
         
         for (let i = 0; i < materials.length; i++) {
-            const material = materials[i];
-            if (!material) continue;
-            
-            const changed = updateMaterialOpacity(material, opacity, materials, i);
-            if (changed) materialChanged = true;
+            if (!materials[i]) continue;
+            if (updateMaterialOpacity(materials[i], opacity, materials, i)) {
+                materialChanged = true;
+            }
         }
         
         if (!materialChanged) return;
         
         child.material = isArray ? materials : materials[0];
-        if (!child.material) return;
-        
-        if (Array.isArray(child.material)) {
-            child.material.forEach(m => m.needsUpdate = true);
-        } else {
-            child.material.needsUpdate = true;
+        if (child.material) {
+            if (Array.isArray(child.material)) {
+                child.material.forEach(m => m.needsUpdate = true);
+            } else {
+                child.material.needsUpdate = true;
+            }
         }
     });
 }
 
 function updateRoomTransparency(playerRoomX, playerRoomZ) {
-    const southKey = `${playerRoomX},${playerRoomZ + 1}`;
-    const westKey = `${playerRoomX - 1},${playerRoomZ}`;
-    const southwestKey = `${playerRoomX - 1},${playerRoomZ + 1}`;
-    const transparentRoomKeys = new Set([southKey, westKey, southwestKey]);
-    
     const playerRoomChanged = lastPlayerRoomX !== playerRoomX || lastPlayerRoomZ !== playerRoomZ;
     const lastWasUninitialized = lastPlayerRoomX === Infinity || lastPlayerRoomZ === Infinity;
     
@@ -115,42 +107,34 @@ function updateRoomTransparency(playerRoomX, playerRoomZ) {
         lastPlayerRoomZ = playerRoomZ;
     }
     
-    let transparencyChanged = false;
-    if (lastTransparentRooms.size !== transparentRoomKeys.size) {
-        transparencyChanged = true;
-    } else {
-        for (const key of transparentRoomKeys) {
-            if (!lastTransparentRooms.has(key)) {
-                transparencyChanged = true;
-                break;
-            }
-        }
+    const southKey = `${playerRoomX},${playerRoomZ + 1}`;
+    const westKey = `${playerRoomX - 1},${playerRoomZ}`;
+    const southwestKey = `${playerRoomX - 1},${playerRoomZ + 1}`;
+    const transparentRoomKeys = new Set([southKey, westKey, southwestKey]);
+    
+    if (!forceTransparencyUpdate && !playerRoomChanged && !lastWasUninitialized) {
+        let transparencyChanged = lastTransparentRooms.size !== transparentRoomKeys.size;
         if (!transparencyChanged) {
-            for (const key of lastTransparentRooms) {
-                if (!transparentRoomKeys.has(key)) {
+            for (const key of transparentRoomKeys) {
+                if (!lastTransparentRooms.has(key)) {
                     transparencyChanged = true;
                     break;
                 }
             }
         }
+        if (!transparencyChanged) return;
     }
-    
-    const shouldUpdate = forceTransparencyUpdate || playerRoomChanged || transparencyChanged || 
-                         lastWasUninitialized || lastTransparentRooms.size === 0;
-    
-    if (!shouldUpdate) return;
     
     forceTransparencyUpdate = false;
     
-    if (playerRoomChanged) {
+    if (playerRoomChanged || lastWasUninitialized) {
         lastPlayerRoomX = playerRoomX;
         lastPlayerRoomZ = playerRoomZ;
     }
     
     for (const [roomKey, room] of loadedRooms) {
         if (!room) continue;
-        const shouldBeTransparent = transparentRoomKeys.has(roomKey);
-        setRoomOpacity(room, shouldBeTransparent ? 0.1 : 1.0);
+        setRoomOpacity(room, transparentRoomKeys.has(roomKey) ? 0.1 : 1.0);
     }
     
     lastTransparentRooms = transparentRoomKeys;
@@ -180,14 +164,9 @@ function processRemoveQueue(world) {
     }
 }
 
-function setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType) {
-    if (room.parent) room.parent.remove(room);
-    
-    room.position.set(roomX * ROOM_SIZE, 0, roomZ * ROOM_SIZE);
-    room.visible = true;
-    
+function createWorldColliders(roomType, roomX, roomZ) {
     const colliders = roomTypes[roomType]?.colliders || [];
-    const worldColliders = colliders.map(collider => ({
+    return colliders.map(collider => ({
         position: {
             x: collider.position.x + roomX * ROOM_SIZE,
             y: collider.position.y,
@@ -195,9 +174,15 @@ function setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType) {
         },
         size: collider.size
     }));
-    roomColliders.set(roomKey, worldColliders);
+}
+
+function setupRoomFromPool(room, roomX, roomZ, roomKey, world, roomType) {
+    if (room.parent) room.parent.remove(room);
     
+    room.position.set(roomX * ROOM_SIZE, 0, roomZ * ROOM_SIZE);
+    room.visible = true;
     
+    roomColliders.set(roomKey, createWorldColliders(roomType, roomX, roomZ));
     world.add(room);
     loadedRooms.set(roomKey, room);
     roomPositions.set(roomKey, { x: roomX, z: roomZ });
@@ -237,55 +222,26 @@ function processRoomQueue(world) {
         };
         
         loadRoomObject(roomType).then((object) => {
-                if (!hasTemplate(roomType)) {
-                    const template = object.clone(true);
-                    registerTemplate(roomType, template);
-                }
-                
-                let room = acquire(roomType);
-                if (!room) room = object;
-                if (room.parent) room.parent.remove(room);
-                
-                room.position.set(roomX * ROOM_SIZE, 0, roomZ * ROOM_SIZE);
-                room.visible = true;
-                
-                const colliders = roomTypes[roomType]?.colliders || [];
-                const worldColliders = colliders.map(collider => ({
-                    position: {
-                        x: collider.position.x + roomX * ROOM_SIZE,
-                        y: collider.position.y,
-                        z: collider.position.z + roomZ * ROOM_SIZE
-                    },
-                    size: collider.size
-                }));
-                roomColliders.set(roomKey, worldColliders);
-                
-                
-                world.add(room);
-                loadedRooms.set(roomKey, room);
-                roomPositions.set(roomKey, { x: roomX, z: roomZ });
-                
-                forceTransparencyUpdate = true;
-                loadingRooms.delete(roomKey);
-            }).catch(onError);
+            if (!hasTemplate(roomType)) {
+                registerTemplate(roomType, object.clone(true));
+            }
+            
+            const room = acquire(roomType) || object;
+            if (room.parent) room.parent.remove(room);
+            
+            room.position.set(roomX * ROOM_SIZE, 0, roomZ * ROOM_SIZE);
+            room.visible = true;
+            
+            roomColliders.set(roomKey, createWorldColliders(roomType, roomX, roomZ));
+            world.add(room);
+            loadedRooms.set(roomKey, room);
+            roomPositions.set(roomKey, { x: roomX, z: roomZ });
+            forceTransparencyUpdate = true;
+            loadingRooms.delete(roomKey);
+        }).catch(onError);
         
         processed++;
     }
-}
-
-function applyInitialTransparency() {
-    const southKey = `${0},${0 + 1}`;
-    const westKey = `${0 - 1},${0}`;
-    const southwestKey = `${0 - 1},${0 + 1}`;
-    const transparentRoomKeys = new Set([southKey, westKey, southwestKey]);
-    
-    for (const [roomKey, room] of loadedRooms) {
-        if (!room) continue;
-        const shouldBeTransparent = transparentRoomKeys.has(roomKey);
-        setRoomOpacity(room, shouldBeTransparent ? 0.1 : 1.0);
-    }
-    
-    lastTransparentRooms = transparentRoomKeys;
 }
 
 export function createWorld() {
@@ -293,33 +249,21 @@ export function createWorld() {
         const world = new THREE.Group();
         
         loadRoomObject(INITIAL_ROOM_TYPE).then((object) => {
-                object.position.set(0, 0, 0);
-                object.visible = true;
-                
-                const colliders = roomTypes[INITIAL_ROOM_TYPE]?.colliders || [];
-                const worldColliders = colliders.map(collider => ({
-                    position: {
-                        x: collider.position.x,
-                        y: collider.position.y,
-                        z: collider.position.z
-                    },
-                    size: collider.size
-                }));
-                roomColliders.set('0,0', worldColliders);
-                
-                
-                world.add(object);
-                loadedRooms.set('0,0', object);
-                roomPositions.set('0,0', { x: 0, z: 0 });
-                
-                lastPlayerRoomX = 0;
-                lastPlayerRoomZ = 0;
-                lastTransparentRooms = new Set();
-                initialRoomLoaded = true;
-                forceTransparencyUpdate = true;
-                
-                resolve(world);
-            });
+            object.position.set(0, 0, 0);
+            object.visible = true;
+            
+            roomColliders.set('0,0', createWorldColliders(INITIAL_ROOM_TYPE, 0, 0));
+            world.add(object);
+            loadedRooms.set('0,0', object);
+            roomPositions.set('0,0', { x: 0, z: 0 });
+            
+            lastPlayerRoomX = 0;
+            lastPlayerRoomZ = 0;
+            lastTransparentRooms = new Set();
+            forceTransparencyUpdate = true;
+            
+            resolve(world);
+        });
     });
 }
 
@@ -335,11 +279,7 @@ export function getRoomColliders() {
     return roomColliders;
 }
 
-export function getLoadedRooms() {
-    return loadedRooms;
-}
-
-export function generateRoomsAroundPlayer(player, world, playerRoomX, playerRoomZ) {
+export function generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ) {
     const roomChanged = playerRoomX !== lastPlayerRoomX || playerRoomZ !== lastPlayerRoomZ;
     
     if (roomChanged || lastPlayerRoomX === Infinity) {

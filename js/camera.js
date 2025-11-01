@@ -30,7 +30,7 @@ export function createCamera() {
     return camera;
 }
 
-export function updateCameraPosition(camera, player, playerRoomX, playerRoomZ) {
+export function updateCameraPosition(camera, playerRoomX, playerRoomZ) {
     if (playerRoomX === currentRoomX && playerRoomZ === currentRoomZ) {
         camera.position.lerp(targetPosition, LERP_SPEED);
         return;
@@ -39,9 +39,10 @@ export function updateCameraPosition(camera, player, playerRoomX, playerRoomZ) {
     currentRoomX = playerRoomX;
     currentRoomZ = playerRoomZ;
     
-    const roomCenterX = currentRoomX * ROOM_SIZE;
-    const roomCenterZ = currentRoomZ * ROOM_SIZE;
-    
-    targetPosition.set(roomCenterX - CAMERA_OFFSET, CAMERA_HEIGHT, roomCenterZ + CAMERA_OFFSET);
+    targetPosition.set(
+        currentRoomX * ROOM_SIZE - CAMERA_OFFSET,
+        CAMERA_HEIGHT,
+        currentRoomZ * ROOM_SIZE + CAMERA_OFFSET
+    );
     camera.position.lerp(targetPosition, LERP_SPEED);
 }

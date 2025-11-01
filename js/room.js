@@ -67,7 +67,7 @@ export const roomTypes = {
             { position: { x: 0, y: 0, z: -2.5 }, size: { x: 5, y: 5, z: 0.3 } },
             { position: { x: 0, y: 0, z: -1 }, size: { x: 1.4, y: 4, z: 1.6 } },
             { position: { x: 2, y: 0, z: 2 }, size: { x: 0.6, y: 2, z: 0.6 } },
-            { position: { x: -2, y: 0, z: 2 }, size: { x: 0.6, y: 2, z: 0.6 } },
+            { position: { x: -2, y: 0, z: 2 }, size: { x: 0.6, y: 2, z: 0.6 } }
         ]
     },
     'Thirsty Corridor': {

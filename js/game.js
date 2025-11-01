@@ -30,7 +30,7 @@ async function init() {
         const sceneData = await createScene();
         ({ scene, camera, player, world, updateCameraPosition } = sceneData);
         
-        setupInput(player, world);
+        setupInput();
         
         renderer = new THREE.WebGLRenderer({ 
             antialias: false,
@@ -67,15 +67,15 @@ function handleResize() {
 function animate() {
     requestAnimationFrame(animate);
     
-    if (!isLoading) handlePlayerMovement(player, world);
+    if (!isLoading) handlePlayerMovement(player);
     
     const { x: playerX, z: playerZ } = player.position;
     const playerRoomX = Math.round(playerX / ROOM_SIZE);
     const playerRoomZ = Math.round(playerZ / ROOM_SIZE);
     
-    updateCameraPosition(camera, player, playerRoomX, playerRoomZ);
+    updateCameraPosition(camera, playerRoomX, playerRoomZ);
     
-    generateRoomsAroundPlayer(player, world, playerRoomX, playerRoomZ);
+    generateRoomsAroundPlayer(world, playerRoomX, playerRoomZ);
     
     renderer.render(scene, camera);
     updateBlur();
